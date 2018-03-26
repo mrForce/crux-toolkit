@@ -115,10 +115,12 @@ int TideIndexApplication::main(
     var_mod_table.ParsedCtpepModTable(), 0, 0)) {
     carp(CARP_FATAL, "Error in MassConstants::Init");
   }
-
+  
   DECOY_TYPE_T decoy_type = get_tide_decoy_type_parameter("decoy-format");
   string decoyPrefix = Params::GetString("decoy-prefix");
+  string decoy_generator = Params::GetString("decoy-generator");
 
+  
   // Set up output paths
   bool overwrite = Params::GetBool("overwrite");
 
@@ -170,7 +172,7 @@ int TideIndexApplication::main(
   vector<TideIndexPeptide> peptideHeap;
   vector<string*> proteinSequences;
   fastaToPb(cmd_line, enzyme_t, digestion, missed_cleavages, min_mass, max_mass,
-            min_length, max_length, allowDups, mass_type, decoy_type, fasta, out_proteins,
+            min_length, max_length, allowDups, mass_type, decoy_type, decoy_generator, fasta, out_proteins,
             proteinPbHeader, peptideHeap, proteinSequences, out_decoy_fasta);
 
   pb::Header header_with_mods;
@@ -427,6 +429,7 @@ void TideIndexApplication::fastaToPb(
   bool allowDups,
   MASS_TYPE_T massType,
   DECOY_TYPE_T decoyType,
+  string decoyGenerator,
   const string& fasta,
   const string& proteinPbFile,
   pb::Header& outProteinPbHeader,
@@ -509,7 +512,26 @@ void TideIndexApplication::fastaToPb(
 
   // Generate decoys
   map<const string, const string*> targetToDecoy;
-  if (decoyType == PROTEIN_REVERSE_DECOYS) {
+  if (decoyGenerator.length()){
+    targetToDecoy  = generateDecoysFromTargets(&setTargets, decoyGenerator);
+      for (set<string>::const_iterator i = setTargets.begin();
+	   i != setTargets.end();
+	   ++i) {
+	const string* setTarget = &*i;
+	const map<const string*, TargetInfo>::iterator targetLookup =
+	  targetInfo.find(setTarget);
+	const ProteinInfo& proteinInfo = (targetLookup->second.proteinInfo);
+	const int startLoc = targetLookup->second.start;
+	FLOAT_T pepMass = targetLookup->second.mass;
+	if(generateCustomDecoy(*setTarget, targetToDecoy, &setTargets, &setDecoys, decoyGenerator, allowDups, failedDecoyCnt,
+			 decoysGenerated, curProtein, proteinInfo, startLoc, pbProtein,
+			 pepMass, outPeptideHeap, outProteinSequences)) {
+	  proteinWriter.Write(&pbProtein);
+	} else {
+	  continue;
+	}
+      }
+  } else if (decoyType == PROTEIN_REVERSE_DECOYS) {
     if (decoyFasta) {
       carp(CARP_INFO, "Writing reverse-protein fasta and decoys...");
     }
@@ -922,6 +944,112 @@ bool TideIndexApplication::generateDecoy(
     if (!GeneratePeptides::makeDecoy(setTarget, *setTargets, *setDecoys,
                                      decoyType == PEPTIDE_SHUFFLE_DECOYS,
                                      *decoySequence)) {
+    carp(CARP_DETAILED_INFO, "Failed to generate decoy for sequence %s",
+         setTarget.c_str());
+    ++failedDecoyCnt;
+    delete decoySequence;
+    return false;
+    } else if(!allowDups) {
+      targetToDecoy[setTarget] = &*(setDecoys->insert(*decoySequence).first);
+    } else {
+      targetToDecoy[setTarget] = decoySequence;
+    }
+  }
+
+  outProteinSequences.push_back(decoySequence);
+
+  // Write pb::Protein
+  getDecoyPbProtein(++curProtein, proteinInfo, *decoySequence,
+                    startLoc, pbProtein);
+  // Add decoy to heap
+  TideIndexPeptide pepDecoy(
+              pepMass, setTarget.length(), decoySequence, curProtein, (startLoc > 0) ? 1 : 0, true);
+  outPeptideHeap.push_back(pepDecoy);
+  push_heap(outPeptideHeap.begin(), outPeptideHeap.end(),
+    greater<TideIndexPeptide>());
+  ++decoysGenerated;
+  return true;
+}
+
+map<string, string>* TideIndexApplication::generateDecoysFromTargets(set<string>* setTargets,
+								     string decoyGenerator){
+  	int send_input[2];
+	int read_output[2];
+	pipe(send_input);
+	pipe(read_output);
+        pid_t value = fork();
+	
+        if(value == 0){
+	  close(send_input[1]);
+	  close(read_output[0]);
+	  dup2(send_input[0], 0);
+	  dup2(read_output[1], 1);
+	  close(send_input[0]);
+	  close(read_output[1]);
+	  char* args[] = {decoyGenerator, NULL};
+	  execvp(args[0], args);
+          return 0;
+        }else{
+          printf("this is the parent");
+	  close(send_input[0]);
+	  close(read_output[1]);
+	  for(std::set<string>::iterator it = (*setTargets).begin(); it != (*setTargets).end(); ++it){
+	    write(send_input[1], (*it).c_str(), (*it).length());
+	    write(send_input[1], "\n", 1);
+	  }
+	  close(send_input[1]);
+	  int wstatus;
+	  waitpid(value, &wstatus, 0);
+	  char character[1];
+	  string decoy;
+	  map<string, string> targetToDecoy;
+	  std::set<string>::iterator target_iter = (*setTargets).begin();
+	  while(read(read_output[0], character, 1) && target_iter != (*setTargets).end()){
+	    if(character[0] >= 'A' && character[0] <= 'Z'){
+	      decoy.append(character);
+	    }else if(character[0] == '\n'){	    
+	      targetToDecoy[*target_iter] = decoy;
+	      decoy.clear();
+	      ++target_iter;
+	    }
+	  }
+        }
+
+
+}
+
+/* My simplest implementation is to send all of the targets to the decoy generator, get back the decoys, and map each target to its decoy*/
+bool TideIndexApplication::generateCustomDecoy(
+  const string& setTarget,
+  std::map<const string, const string*>& targetToDecoy,
+  set<string>* setTargets,
+  set<string>* setDecoys,
+  bool allowDups,
+  unsigned int& failedDecoyCnt,
+  unsigned int& decoysGenerated,
+  int& curProtein,
+  const ProteinInfo& proteinInfo,
+  const int startLoc,
+  pb::Protein& pbProtein,
+  FLOAT_T pepMass,
+  vector<TideIndexPeptide>& outPeptideHeap,
+  vector<string*>& outProteinSequences
+) {
+  const map<const string, const string*>::const_iterator decoyCheck =
+        targetToDecoy.find(setTarget);
+  string* decoySequence = new string;
+  if (decoyCheck != targetToDecoy.end()) {
+    // Decoy already generated for this sequence
+    *decoySequence = *(decoyCheck->second);
+  } else {
+    // Try to generate decoy
+    if(allowDups) {
+      set<string> targets, decoys;
+      setTargets = &targets;
+      setDecoys = &decoys;
+    }
+    decoySequence =  targetToDecoy[*setTarget];
+    if (decoySequence.length() == 0) {
     carp(CARP_DETAILED_INFO, "Failed to generate decoy for sequence %s",
          setTarget.c_str());
     ++failedDecoyCnt;

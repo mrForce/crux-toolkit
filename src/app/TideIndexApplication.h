@@ -163,6 +163,7 @@ class TideIndexApplication : public CruxApplication {
     bool dups,
     MASS_TYPE_T massType,
     DECOY_TYPE_T decoyType,
+    string decoyGenerator,
     const std::string& fasta,
     const std::string& proteinPbFile,
     pb::Header& outProteinPbHeader,
@@ -231,9 +232,27 @@ class TideIndexApplication : public CruxApplication {
     vector<TideIndexPeptide>& outPeptideHeap,
     vector<string*>& outProteinSequences
   );
-
+  bool TideIndexApplication::generateCustomDecoy(
+  const string& setTarget,
+  std::map<const string, const string*>& targetToDecoy,
+  set<string>* setTargets,
+  set<string>* setDecoys,
+  bool allowDups,
+  unsigned int& failedDecoyCnt,
+  unsigned int& decoysGenerated,
+  int& curProtein,
+  const ProteinInfo& proteinInfo,
+  const int startLoc,
+  pb::Protein& pbProtein,
+  FLOAT_T pepMass,
+  vector<TideIndexPeptide>& outPeptideHeap,
+  vector<string*>& outProteinSequences
+					   );
+  
   virtual void processParams();
 };
+map<string, string>* TideIndexApplication::generateDecoysFromTargets(set<string>* setTargets,
+								     string decoyGenerator){
 
 #endif
 
