@@ -248,7 +248,7 @@ class TideIndexApplication : public CruxApplication {
   vector<TideIndexPeptide>& outPeptideHeap,
   vector<string*>& outProteinSequences
 					   );
-  map<string, string>* generateDecoysFromTargets(set<string>* setTargets,
+  map<string, string>* generateDecoysFromTargets(set<string>& setTargets,
 						 string decoyGenerator);
 
   

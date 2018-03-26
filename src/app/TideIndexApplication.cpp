@@ -511,9 +511,13 @@ void TideIndexApplication::fastaToPb(
   }
 
   // Generate decoys
+  /*
+    Jordan, 3/26/18 8:30 AM: Before I go any further, I need to figure out why the type of the value in
+    targetToDecoy is of type const string*, and not just const string. This might be important!
+   */
   map<const string, const string*> targetToDecoy;
   if (decoyGenerator.length()){
-    targetToDecoy  = generateDecoysFromTargets(&setTargets, decoyGenerator);
+    targetToDecoy  = generateDecoysFromTargets(setTargets, decoyGenerator);
       for (set<string>::const_iterator i = setTargets.begin();
 	   i != setTargets.end();
 	   ++i) {
@@ -971,7 +975,7 @@ bool TideIndexApplication::generateDecoy(
   return true;
 }
 
-map<string, string>* TideIndexApplication::generateDecoysFromTargets(set<string>* setTargets,
+map<const string, const string>* TideIndexApplication::generateDecoysFromTargets(set<string>& setTargets,
 								     string decoyGenerator){
   	int send_input[2];
 	int read_output[2];
@@ -993,7 +997,7 @@ map<string, string>* TideIndexApplication::generateDecoysFromTargets(set<string>
           printf("this is the parent");
 	  close(send_input[0]);
 	  close(read_output[1]);
-	  for(std::set<string>::iterator it = (*setTargets).begin(); it != (*setTargets).end(); ++it){
+	  for(std::set<string>::iterator it = setTargets.begin(); it != setTargets.end(); ++it){
 	    write(send_input[1], (*it).c_str(), (*it).length());
 	    write(send_input[1], "\n", 1);
 	  }
@@ -1002,18 +1006,20 @@ map<string, string>* TideIndexApplication::generateDecoysFromTargets(set<string>
 	  waitpid(value, &wstatus, 0);
 	  char character[1];
 	  string decoy;
-	  map<string, string> targetToDecoy;
-	  std::set<string>::iterator target_iter = (*setTargets).begin();
-	  while(read(read_output[0], character, 1) && target_iter != (*setTargets).end()){
+	  map<const string, const string>* targetToDecoy = new map<const string, const string>;
+	  std::set<string>::iterator target_iter = setTargets.begin();
+	  while(read(read_output[0], character, 1) && target_iter != setTargets.end()){
 	    if(character[0] >= 'A' && character[0] <= 'Z'){
 	      decoy.append(character);
-	    }else if(character[0] == '\n'){	    
-	      targetToDecoy[*target_iter] = decoy;
+	    }else if(character[0] == '\n'){	      
+	      targetToDecoy->insert(pair<const string, const string>(*target_iter, decoy));
 	      decoy.clear();
 	      ++target_iter;
 	    }
 	  }
+	  return targetToDecoy;
         }
+
 
 
 }
@@ -1048,7 +1054,8 @@ bool TideIndexApplication::generateCustomDecoy(
       setTargets = &targets;
       setDecoys = &decoys;
     }
-    decoySequence =  targetToDecoy[*setTarget];
+
+    decoySequence = targetToDecoy[setTarget];
     if (decoySequence.length() == 0) {
     carp(CARP_DETAILED_INFO, "Failed to generate decoy for sequence %s",
          setTarget.c_str());
