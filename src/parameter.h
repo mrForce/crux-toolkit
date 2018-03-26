@@ -157,6 +157,7 @@ DECOY_TYPE_T get_tide_decoy_type_parameter(
   const char* name
   );
 
+
 MASS_FORMAT_T get_mass_format_type_parameter(
   const char* name
   );

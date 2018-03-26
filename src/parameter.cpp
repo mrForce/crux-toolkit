@@ -412,6 +412,7 @@ DECOY_TYPE_T get_tide_decoy_type_parameter(
   return string_to_tide_decoy_type(Params::GetString(name));
 }
 
+
 MASS_FORMAT_T get_mass_format_type_parameter(
   const char* name
   ){
