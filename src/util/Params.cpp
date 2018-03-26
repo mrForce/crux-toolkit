@@ -735,7 +735,7 @@ Params::Params() : finalized_(false) {
     "homopolymers will appear in both the target and decoy database. The protein-reverse "
     "mode reverses the entire protein sequence, irrespective of the composite peptides.",
     "Available for tide-index", true);
-  InitStringParam("decoy-generator", "", "This should be the path of a program that takes in a peptide on its standard input, and outputs a decoy onto standard out. This overrides decoy-format", true);
+  InitStringParam("decoy-generator", "", "This should be the path of a program that takes in a peptide on its standard input, and outputs a decoy onto standard out. This overrides decoy-format", "", true);
   InitStringParam("mods-spec", "C+57.02146",
     "[[nohtml:Expression for static and variable mass modifications to include. "
     "Specify a comma-separated list of modification sequences of the form: "

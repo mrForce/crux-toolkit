@@ -232,7 +232,7 @@ class TideIndexApplication : public CruxApplication {
     vector<TideIndexPeptide>& outPeptideHeap,
     vector<string*>& outProteinSequences
   );
-  bool TideIndexApplication::generateCustomDecoy(
+  bool generateCustomDecoy(
   const string& setTarget,
   std::map<const string, const string*>& targetToDecoy,
   set<string>* setTargets,
@@ -248,11 +248,12 @@ class TideIndexApplication : public CruxApplication {
   vector<TideIndexPeptide>& outPeptideHeap,
   vector<string*>& outProteinSequences
 					   );
+  map<string, string>* generateDecoysFromTargets(set<string>* setTargets,
+						 string decoyGenerator);
+
   
   virtual void processParams();
 };
-map<string, string>* TideIndexApplication::generateDecoysFromTargets(set<string>* setTargets,
-								     string decoyGenerator){
 
 #endif
 
