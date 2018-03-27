@@ -1,0 +1,16 @@
+#include <iostream>
+#include <string>
+#include <sstream>
+
+
+/* I know this is already implemented in tide-index, but the first test I'll write will be a simple shuffle program */
+
+int main(){
+  std::string tempLine;
+  std::string outString;
+  while(std::getline(std::cin, tempLine)){
+    outString = std::string(tempLine.length(), 'A');
+    std::cout << outString << std::endl;
+  }
+  return 0;
+}

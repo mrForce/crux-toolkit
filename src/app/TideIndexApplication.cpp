@@ -1009,10 +1009,11 @@ map<const string, const string*> TideIndexApplication::generateDecoysFromTargets
 	  std::set<string>::iterator target_iter = setTargets.begin();
 	  while(read(read_output[0], character, 1) && target_iter != setTargets.end()){
 	    if(character[0] >= 'A' && character[0] <= 'Z'){
-	      decoy.append(character);
-	    }else if(character[0] == '\n'){
-	      string* decoy_pointer = new string(decoy);
-	      targetToDecoy.insert(pair<const string, const string*>(*target_iter, decoy_pointer));
+	      decoy.append(character, 1);
+	    }else if(character[0] == '\n'){	      
+	      string* final_decoy = new string;
+	      final_decoy->assign(decoy);
+	      targetToDecoy.insert(pair<const string, const string*>(*target_iter, final_decoy));
 	      decoy.clear();
 	      ++target_iter;
 	    }
@@ -1043,11 +1044,11 @@ bool TideIndexApplication::generateCustomDecoy(
 ) {
   const map<const string, const string*>::const_iterator decoyCheck =
         targetToDecoy.find(setTarget);
-  string* decoySequence;
-
+  string* decoySequence = new string;
+  
   if (decoyCheck != targetToDecoy.end() && decoyCheck->second->length() > 0) {
     // Decoy already generated for this sequence
-    *decoySequence = *(decoyCheck->second);
+    *decoySequence = (*decoyCheck->second);
   } else {
     //Decoy could not be generated. Fail. 
     carp(CARP_DETAILED_INFO, "Failed to generate decoy for sequence %s", setTarget.c_str());

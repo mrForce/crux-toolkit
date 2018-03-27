@@ -1,0 +1,13 @@
+all: shuffle replaceWithA
+
+shuffle: shuffle.o
+	g++ shuffle.o -o shuffle
+shuffle.o: shuffle.cpp
+	g++ -c shuffle.cpp
+replaceWithA: replaceWithA.o
+	g++ replaceWithA.o -o replaceWithA
+replaceWithA.o: replaceWithA.cpp
+	g++ -c replaceWithA.cpp
+
+clean:
+	rm *.o shuffle replaceWithA
