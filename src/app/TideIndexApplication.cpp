@@ -366,6 +366,7 @@ vector<string> TideIndexApplication::getOptions() const {
     "cterm-protein-mods-spec",
     "custom-enzyme",
     "decoy-format",
+    "decoy-generator",
     "decoy-prefix",
     "digestion",
     "enzyme",
