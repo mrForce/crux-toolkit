@@ -4,7 +4,9 @@
 #include "CruxApplication.h"
 
 #include <sys/stat.h>
-
+#include <sys/wait.h>
+#include <cstring>
+#include <unistd.h>
 #ifndef _MSC_VER
 #include <unistd.h>
 #endif
@@ -232,7 +234,7 @@ class TideIndexApplication : public CruxApplication {
     vector<TideIndexPeptide>& outPeptideHeap,
     vector<string*>& outProteinSequences
   );
-  bool generateCustomDecoy(
+  static bool generateCustomDecoy(
   const string& setTarget,
   std::map<const string, const string*>& targetToDecoy,
   set<string>* setTargets,
@@ -248,7 +250,8 @@ class TideIndexApplication : public CruxApplication {
   vector<TideIndexPeptide>& outPeptideHeap,
   vector<string*>& outProteinSequences
 					   );
-  map<string, string>* generateDecoysFromTargets(set<string>& setTargets,
+  //this needs to be static, since fastatopb is static
+  static map<const string, const string*> generateDecoysFromTargets(set<string>& setTargets,
 						 string decoyGenerator);
 
   

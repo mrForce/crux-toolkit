@@ -511,23 +511,20 @@ void TideIndexApplication::fastaToPb(
   }
 
   // Generate decoys
-  /*
-    Jordan, 3/26/18 8:30 AM: Before I go any further, I need to figure out why the type of the value in
-    targetToDecoy is of type const string*, and not just const string. This might be important!
-   */
   map<const string, const string*> targetToDecoy;
   if (decoyGenerator.length()){
     targetToDecoy  = generateDecoysFromTargets(setTargets, decoyGenerator);
       for (set<string>::const_iterator i = setTargets.begin();
 	   i != setTargets.end();
 	   ++i) {
+	const string setTargetString = *i;
 	const string* setTarget = &*i;
 	const map<const string*, TargetInfo>::iterator targetLookup =
 	  targetInfo.find(setTarget);
 	const ProteinInfo& proteinInfo = (targetLookup->second.proteinInfo);
 	const int startLoc = targetLookup->second.start;
 	FLOAT_T pepMass = targetLookup->second.mass;
-	if(generateCustomDecoy(*setTarget, targetToDecoy, &setTargets, &setDecoys, decoyGenerator, allowDups, failedDecoyCnt,
+	if(generateCustomDecoy(setTargetString, targetToDecoy, &setTargets, &setDecoys, allowDups, failedDecoyCnt,
 			 decoysGenerated, curProtein, proteinInfo, startLoc, pbProtein,
 			 pepMass, outPeptideHeap, outProteinSequences)) {
 	  proteinWriter.Write(&pbProtein);
@@ -975,7 +972,7 @@ bool TideIndexApplication::generateDecoy(
   return true;
 }
 
-map<const string, const string>* TideIndexApplication::generateDecoysFromTargets(set<string>& setTargets,
+map<const string, const string*> TideIndexApplication::generateDecoysFromTargets(set<string>& setTargets,
 								     string decoyGenerator){
   	int send_input[2];
 	int read_output[2];
@@ -990,9 +987,10 @@ map<const string, const string>* TideIndexApplication::generateDecoysFromTargets
 	  dup2(read_output[1], 1);
 	  close(send_input[0]);
 	  close(read_output[1]);
-	  char* args[] = {decoyGenerator, NULL};
+	  char* generator_c_str = new char[decoyGenerator.length() + 1];
+	  strcpy(generator_c_str, decoyGenerator.c_str());
+	  char* args[] = {generator_c_str, NULL};
 	  execvp(args[0], args);
-          return 0;
         }else{
           printf("this is the parent");
 	  close(send_input[0]);
@@ -1006,13 +1004,14 @@ map<const string, const string>* TideIndexApplication::generateDecoysFromTargets
 	  waitpid(value, &wstatus, 0);
 	  char character[1];
 	  string decoy;
-	  map<const string, const string>* targetToDecoy = new map<const string, const string>;
+	  map<const string, const string*> targetToDecoy;
 	  std::set<string>::iterator target_iter = setTargets.begin();
 	  while(read(read_output[0], character, 1) && target_iter != setTargets.end()){
 	    if(character[0] >= 'A' && character[0] <= 'Z'){
 	      decoy.append(character);
-	    }else if(character[0] == '\n'){	      
-	      targetToDecoy->insert(pair<const string, const string>(*target_iter, decoy));
+	    }else if(character[0] == '\n'){
+	      string* decoy_pointer = new string(decoy);
+	      targetToDecoy.insert(pair<const string, const string*>(*target_iter, decoy_pointer));
 	      decoy.clear();
 	      ++target_iter;
 	    }
@@ -1043,31 +1042,17 @@ bool TideIndexApplication::generateCustomDecoy(
 ) {
   const map<const string, const string*>::const_iterator decoyCheck =
         targetToDecoy.find(setTarget);
-  string* decoySequence = new string;
-  if (decoyCheck != targetToDecoy.end()) {
+  string* decoySequence;
+
+  if (decoyCheck != targetToDecoy.end() && decoyCheck->second->length() > 0) {
     // Decoy already generated for this sequence
     *decoySequence = *(decoyCheck->second);
   } else {
-    // Try to generate decoy
-    if(allowDups) {
-      set<string> targets, decoys;
-      setTargets = &targets;
-      setDecoys = &decoys;
-    }
-
-    decoySequence = targetToDecoy[setTarget];
-    if (decoySequence.length() == 0) {
-    carp(CARP_DETAILED_INFO, "Failed to generate decoy for sequence %s",
-         setTarget.c_str());
-    ++failedDecoyCnt;
+    //Decoy could not be generated. Fail. 
+    carp(CARP_DETAILED_INFO, "Failed to generate decoy for sequence %s", setTarget.c_str());
     delete decoySequence;
     return false;
-    } else if(!allowDups) {
-      targetToDecoy[setTarget] = &*(setDecoys->insert(*decoySequence).first);
-    } else {
-      targetToDecoy[setTarget] = decoySequence;
-    }
-  }
+  } 
 
   outProteinSequences.push_back(decoySequence);
 
