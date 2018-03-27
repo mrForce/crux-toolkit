@@ -993,7 +993,7 @@ map<const string, const string*> TideIndexApplication::generateDecoysFromTargets
 	  char* args[] = {generator_c_str, NULL};
 	  execvp(args[0], args);
         }else{
-          printf("this is the parent");
+          //printf("this is the parent");
 	  close(send_input[0]);
 	  close(read_output[1]);
 	  for(std::set<string>::iterator it = setTargets.begin(); it != setTargets.end(); ++it){
@@ -1010,7 +1010,7 @@ map<const string, const string*> TideIndexApplication::generateDecoysFromTargets
 	  while(read(read_output[0], character, 1) && target_iter != setTargets.end()){
 	    if(character[0] >= 'A' && character[0] <= 'Z'){
 	      decoy.append(character, 1);
-	    }else if(character[0] == '\n'){	      
+	    }else if(character[0] == '\n'){
 	      string* final_decoy = new string;
 	      final_decoy->assign(decoy);
 	      targetToDecoy.insert(pair<const string, const string*>(*target_iter, final_decoy));
