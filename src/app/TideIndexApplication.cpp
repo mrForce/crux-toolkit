@@ -120,12 +120,15 @@ int TideIndexApplication::main(
   string decoyPrefix = Params::GetString("decoy-prefix");
   string decoy_generator = Params::GetString("decoy-generator");
 
-  
+
   // Set up output paths
   bool overwrite = Params::GetBool("overwrite");
 
   if (!FileUtils::Exists(fasta)) {
     carp(CARP_FATAL, "Fasta file %s does not exist", fasta.c_str());
+  }
+  if(decoy_generator.length() > 0 && decoy_generator.find_first_of('/') != string::npos && !FileUtils::Exists(decoy_generator)){
+    carp(CARP_FATAL, "The decoy generator points to a file that does not exist");
   }
 
   string out_proteins = FileUtils::Join(index, "protix");
@@ -980,7 +983,10 @@ map<const string, const string*> TideIndexApplication::generateDecoysFromTargets
 	pipe(send_input);
 	pipe(read_output);
         pid_t value = fork();
-	
+	/* I need to figure out how to detect errors with execvp, and call:
+
+	   carp(CARP_FATAL, "Decoy generate would not execute")
+	*/
         if(value == 0){
 	  close(send_input[1]);
 	  close(read_output[0]);
@@ -992,17 +998,27 @@ map<const string, const string*> TideIndexApplication::generateDecoysFromTargets
 	  strcpy(generator_c_str, decoyGenerator.c_str());
 	  char* args[] = {generator_c_str, NULL};
 	  execvp(args[0], args);
+	  //then execvp did not execute
+	  exit(1);
         }else{
           //printf("this is the parent");
 	  close(send_input[0]);
 	  close(read_output[1]);
+
 	  for(std::set<string>::iterator it = setTargets.begin(); it != setTargets.end(); ++it){
-	    write(send_input[1], (*it).c_str(), (*it).length());
-	    write(send_input[1], "\n", 1);
+	    if(write(send_input[1], (*it).c_str(), (*it).length()) < 0){
+	      carp(CARP_FATAL, "Decoy Generator would not execute properly");
+	    }
+	    if(write(send_input[1], "\n", 1) < 0){
+	      carp(CARP_FATAL, "Decoy Generator would not execute properly");
+	    }
 	  }
 	  close(send_input[1]);
-	  int wstatus;
+	  int wstatus = 0;
 	  waitpid(value, &wstatus, 0);
+	  if(wstatus != 0){
+	    carp(CARP_FATAL, "Decoy Generator exited with non-zero status");
+	  }
 	  char character[1];
 	  string decoy;
 	  map<const string, const string*> targetToDecoy;
